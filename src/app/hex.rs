@@ -1,6 +1,7 @@
 use ratatui::text::{Line, Span, Text};
+use iced_x86::Instruction;
 
-use super::{color_settings::ColorSettings, App};
+use super::{color_settings::ColorSettings, App, info_mode::InfoMode::Assembly};
 
 impl <'a> App<'a>
 {
@@ -18,7 +19,7 @@ impl <'a> App<'a>
             let hex_high = hex_chars[0].to_string();
             let hex_low = hex_chars[1].to_string();
             let style = Self::get_style_for_byte(color_settings, *b);
-            let span = Span::styled(hex_high, 
+            let span = Span::styled(hex_high,
             if byte_index == 0
             {
                 color_settings.hex_selected
@@ -106,12 +107,12 @@ impl <'a> App<'a>
 
     pub(super) fn edit_data(&mut self, mut value: char)
     {
-        value = value.to_uppercase().next().unwrap(); 
+        value = value.to_uppercase().next().unwrap();
 
         if value >= '0' && value <= '9' || value >= 'A' && value <= 'F'
-        {   
+        {
             let cursor_position = self.get_cursor_position();
-            
+
             let hex = if cursor_position.high_byte
             {
                 format!("{}{}", value, self.hex_view.lines[cursor_position.line_index]
@@ -137,7 +138,7 @@ impl <'a> App<'a>
             let style = Self::get_style_for_byte(&self.color_settings, byte);
             self.hex_view.lines[cursor_position.line_index]
                 .spans[cursor_position.line_byte_index * 3 + cursor_position.get_high_byte_offset()] = Span::styled(value.to_string(), style);
-            
+
             let text = App::u8_to_char(byte);
             let new_str = text.to_string();
 
@@ -155,7 +156,7 @@ impl <'a> App<'a>
         if self.hex_last_byte_index < self.data.len()
         {
             let old_byte = self.data[self.hex_last_byte_index];
-            let style = Self::get_style_for_byte(&self.color_settings, old_byte);    
+            let style = Self::get_style_for_byte(&self.color_settings, old_byte);
             self.hex_view.lines[self.hex_cursor.0].spans[self.hex_cursor.1].style = style;
         }
 
@@ -165,7 +166,26 @@ impl <'a> App<'a>
         {
             self.hex_view.lines[self.hex_cursor.0].spans[self.hex_cursor.1].style = self.color_settings.hex_selected;
         }
+
+
+        if self.info_mode == Assembly {
+            let current_instruction = self.get_current_instruction();
+            if current_instruction.is_some(){
+                let instruction = current_instruction.unwrap();
+                if self.hex_cursor.1 - instruction.ip() as usize > 0{
+
+                }
+            }
+
+        }
     }
+
+    pub(super) fn get_current_instruction(&self) -> Option<Instruction>
+    {
+        let current_istruction_index =  self.assembly_offsets[self.get_cursor_position().global_byte_index];
+        Some(self.instructions[current_istruction_index as usize])
+    }
+
 
     pub(super) fn save_data(&mut self)
     {

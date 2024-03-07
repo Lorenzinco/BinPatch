@@ -54,7 +54,7 @@ impl <'a> App<'a>
         let (x, y) = self.cursor;
         let mut x = x as isize + dx;
         let mut y = y as isize + dy;
-        
+
         let view_size_y = self.screen_size.1 - 3;
 
         let viewed_block_size = (self.block_size * 3 + 1) as isize;
@@ -78,7 +78,7 @@ impl <'a> App<'a>
                 x = viewed_line_size - self.blocks_per_row as isize;
                 y -= 1;
             }
-            else 
+            else
             {
                 x = 0;
             }
@@ -112,7 +112,7 @@ impl <'a> App<'a>
         let data_len = self.data.len() as isize;
         let bytes_per_row = self.block_size as isize * self.blocks_per_row as isize;
         let characters_in_last_row = (data_len % bytes_per_row) * 3 + (data_len % bytes_per_row) / self.block_size as isize - 2;
-        if y + self.scroll as isize == data_len / bytes_per_row 
+        if y + self.scroll as isize == data_len / bytes_per_row
         {
             x = x.min(characters_in_last_row);
         }

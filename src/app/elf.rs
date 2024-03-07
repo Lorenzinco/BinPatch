@@ -172,6 +172,22 @@ pub struct ElfHeader
     pub section_header_string_table_index: u16
 }
 
+pub struct Elf
+{
+    pub header: ElfHeader,
+    pub text: Vec<u8>,
+}
+
+impl Elf
+{
+    pub fn parse_elf(bytes: &[u8]) -> Option<Self>
+    {
+        let header = ElfHeader::parse_header(bytes)?;
+        let text = Vec::from(&bytes[header.program_header_offset as usize..]);
+        Some(Self { header, text })
+    }
+}
+
 impl ElfHeader
 {
     fn is_elf(bytes: &[u8]) -> bool
@@ -345,7 +361,7 @@ impl ElfHeader
                     0x101 => InstructionSet::WDC65C816,
                     _ => return None
                 };
-                
+
                 let elf_version = match bytes[0x14]
                 {
                     1 => 1,
@@ -372,7 +388,7 @@ impl ElfHeader
                     {
                         Endianness::Little => u32::from_le_bytes([bytes[0x1C], bytes[0x1D], bytes[0x1E], bytes[0x1F]]) as u64,
                         Endianness::Big => u32::from_be_bytes([bytes[0x1C], bytes[0x1D], bytes[0x1E], bytes[0x1F]]) as u64
-                        
+
                     },
                     Bitness::Bit64 => match endianness
                     {
@@ -394,7 +410,7 @@ impl ElfHeader
                         Endianness::Big => u64::from_be_bytes([bytes[0x28], bytes[0x29], bytes[0x2A], bytes[0x2B], bytes[0x2C], bytes[0x2D], bytes[0x2E], bytes[0x2F]])
                     }
                 };
-                
+
                 let flags = match bitness
                 {
                     Bitness::Bit32 => match endianness
@@ -513,12 +529,12 @@ impl ElfHeader
                     section_header_string_table_index
                 })
             }
-            else 
+            else
             {
                 None
             }
         }
-        else 
+        else
         {
             None
         }

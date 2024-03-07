@@ -1,11 +1,12 @@
 use std::{path::PathBuf, time::Duration};
 
 use crossterm::event;
+use iced_x86::Instruction;
 use ratatui::{backend::Backend, layout::Rect, style::{Color, Style}, text::Text, widgets::{Block, Borders, ScrollbarState}};
 
 use super::{color_settings::{self, ColorSettings}, info_mode::InfoMode, popup_state::PopupState};
 
-pub struct App<'a> 
+pub struct App<'a>
 {
     pub(super) path: PathBuf,
     pub(super) output: String,
@@ -35,6 +36,7 @@ pub struct App<'a>
 
     pub(super) block_size: usize,
     pub(super) blocks_per_row: usize,
+    pub(super) instructions: Vec<Instruction>,
 }
 
 impl <'a> App<'a>
@@ -48,7 +50,7 @@ impl <'a> App<'a>
         let address_view = Self::addresses(&color_settings, data.len(), block_size, blocks_per_row);
         let hex_view = Self::bytes_to_styled_hex(&color_settings, &data, block_size, blocks_per_row);
         let text_view = Self::bytes_to_styled_text(&color_settings, &data, block_size, blocks_per_row);
-        let (assembly_view, assembly_offsets) = Self::assembly_from_bytes(&color_settings, &data);
+        let (assembly_view, assembly_offsets, instruction_vec) = Self::assembly_from_bytes(&color_settings, &data);
         Ok(App{
             path: file_path,
             data,
@@ -56,7 +58,7 @@ impl <'a> App<'a>
             dirty: false,
             address_view,
             hex_view,
-            text_view, 
+            text_view,
             assembly_view,
             assembly_offsets,
             address_last_row: 0,
@@ -78,6 +80,7 @@ impl <'a> App<'a>
 
             block_size,
             blocks_per_row,
+            instructions: instruction_vec,
         })
     }
 
@@ -86,7 +89,7 @@ impl <'a> App<'a>
         self.screen_size = (terminal.size()?.width, terminal.size()?.height);
         self.resize_if_needed(self.screen_size.0);
 
-        while self.needs_to_exit == false 
+        while self.needs_to_exit == false
         {
             if event::poll(self.poll_time)?
             {
@@ -106,7 +109,7 @@ impl <'a> App<'a>
 
                 let output_block = ratatui::widgets::Paragraph::new(Text::raw(&self.output))
                     .block(Block::default().borders(Borders::LEFT));
-                
+
                 let line_start_index = self.scroll;
                 let line_end_index = (self.scroll + f.size().height as usize - 2).min(self.hex_view.lines.len());
 
@@ -120,14 +123,14 @@ impl <'a> App<'a>
 
                 let address_block = ratatui::widgets::Paragraph::new(address_subview)
                     .block(Block::default().title("Address").borders(Borders::LEFT | Borders::TOP | Borders::BOTTOM));
-                
+
                 let editor_title = format!("Hex Editor{}", if self.dirty { " *"} else {""});
 
                 let hex_editor_block = ratatui::widgets::Paragraph::new(hex_subview)
                     .block(Block::default().title(editor_title).borders(Borders::LEFT | Borders::TOP | Borders::RIGHT | Borders::BOTTOM));
-                
-                let info_view_block = 
-                match &self.info_mode 
+
+                let info_view_block =
+                match &self.info_mode
                 {
                     InfoMode::Text =>
                     {
@@ -163,7 +166,7 @@ impl <'a> App<'a>
                 f.render_widget(info_view_block, info_view_rect);
                 f.render_stateful_widget(scrollbar, f.size(), &mut scrollbar_state);
 
-                if let Some(popup_state) = &self.popup 
+                if let Some(popup_state) = &self.popup
                 {
                     let clear = ratatui::widgets::Clear::default();
 
@@ -187,4 +190,3 @@ impl <'a> App<'a>
         Ok(())
     }
 }
-
