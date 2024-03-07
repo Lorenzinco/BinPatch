@@ -111,7 +111,6 @@ impl <'a> App<'a>
         let mut byte_index = 0;
         let mut line_index = 0;
         for instruction in decoder {
-
             instructions.push(instruction);
             let line = Self::instruction_to_line(color_settings, &instruction, line_index == 0);
 
@@ -154,9 +153,21 @@ impl <'a> App<'a>
         view_scroll as usize
     }
 
+    pub(super) fn get_current_instruction(&self) -> Instruction
+    {
+        let current_istruction_index =  self.assembly_offsets[self.get_cursor_position().global_byte_index];
+        self.assembly_instructions[current_istruction_index as usize]
+    }
+
+    pub(super) fn get_instruction_at(&self, index: usize) -> Instruction
+    {
+        let current_istruction_index =  self.assembly_offsets[index];
+        self.assembly_instructions[current_istruction_index as usize]
+    }
+
     pub(super) fn edit_assembly(&mut self)
     {
-        (self.assembly_view, self.assembly_offsets, self.instructions) = Self::assembly_from_bytes(&self.color_settings, &self.data);
+        (self.assembly_view, self.assembly_offsets, self.assembly_instructions) = Self::assembly_from_bytes(&self.color_settings, &self.data);
         self.assembly_scroll = 0;
         self.update_assembly_scroll();
     }

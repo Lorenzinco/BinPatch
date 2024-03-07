@@ -17,6 +17,7 @@ pub struct App<'a>
     pub(super) text_view: Text<'a>,
     pub(super) assembly_view: Text<'a>,
     pub(super) assembly_offsets: Vec<usize>,
+    pub(super) assembly_instructions: Vec<Instruction>,
     pub(super) address_last_row: usize,
     pub(super) hex_last_byte_index: usize,
     pub(super) hex_cursor: (usize, usize),
@@ -36,7 +37,6 @@ pub struct App<'a>
 
     pub(super) block_size: usize,
     pub(super) blocks_per_row: usize,
-    pub(super) instructions: Vec<Instruction>,
 }
 
 impl <'a> App<'a>
@@ -52,7 +52,7 @@ impl <'a> App<'a>
         let address_view = Self::addresses(&color_settings, data.len(), block_size, blocks_per_row);
         let hex_view = Self::bytes_to_styled_hex(&color_settings, &data, block_size, blocks_per_row);
         let text_view = Self::bytes_to_styled_text(&color_settings, &data, block_size, blocks_per_row);
-        let (assembly_view, assembly_offsets, instruction_vec) = Self::assembly_from_bytes(&color_settings, &data);
+        let (assembly_view, assembly_offsets, assembly_instructions) = Self::assembly_from_bytes(&color_settings, &data);
         Ok(App{
             path: canonical_path,
             data,
@@ -63,6 +63,7 @@ impl <'a> App<'a>
             text_view,
             assembly_view,
             assembly_offsets,
+            assembly_instructions,
             address_last_row: 0,
             hex_last_byte_index: 0,
             hex_cursor: (0,0),
@@ -82,7 +83,6 @@ impl <'a> App<'a>
 
             block_size,
             blocks_per_row,
-            instructions: instruction_vec,
         })
     }
 

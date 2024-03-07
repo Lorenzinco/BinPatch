@@ -14,6 +14,7 @@ pub struct ColorSettings
     pub hex_symbol: Style,
     pub hex_end_of_line: Style,
     pub hex_whitespace: Style,
+    pub hex_current_instruction: Style,
     pub hex_default: Style,
     pub current_instruction: Style,
 
@@ -53,6 +54,7 @@ impl Default for ColorSettings
             hex_symbol: Style::default().fg(Color::Rgb(204, 152, 113)).add_modifier(Modifier::DIM),
             hex_end_of_line: Style::default().fg(Color::LightRed),
             hex_whitespace: Style::default().fg(Color::Rgb(244, 202, 183)),
+            hex_current_instruction: Style::default().fg(Color::Rgb(0,0,0)).bg(Color::Rgb(215, 170, 92)),
             hex_default: Style::default(),
             current_instruction: Style::default().bg(Color::Rgb(244, 202, 183)).fg(Color::Rgb(0,0,0)),
 
