@@ -137,8 +137,12 @@ impl <'a> App<'a>
             }
 
             let style = Self::get_style_for_byte(&self.color_settings, byte);
+            let [high_char, low_char] = Self::u8_to_hex(byte);
+
             self.hex_view.lines[cursor_position.line_index]
-                .spans[cursor_position.line_byte_index * 3 + cursor_position.get_high_byte_offset()] = Span::styled(value.to_string(), style);
+                .spans[cursor_position.line_byte_index * 3] = Span::styled(high_char.to_string(), style);
+            self.hex_view.lines[cursor_position.line_index]
+                .spans[cursor_position.line_byte_index * 3 + 1] = Span::styled(low_char.to_string(), style);
 
             let text = App::u8_to_char(byte);
             let new_str = text.to_string();
@@ -164,7 +168,8 @@ impl <'a> App<'a>
             let style = Self::get_style_for_byte(&self.color_settings, old_byte);
             self.hex_view.lines[self.hex_cursor.0].spans[self.hex_cursor.1].style = style;
             if self.info_mode == Assembly {
-                if instruction != old_instruction {
+                if instruction.ip() != old_instruction.ip() {
+
                     self.color_instruction(&old_instruction,None);
                 }
             }
@@ -177,6 +182,7 @@ impl <'a> App<'a>
 
         self.hex_last_byte_index = cursor_position.global_byte_index;
         self.hex_cursor = (cursor_position.line_index, cursor_position.line_byte_index * 3 + cursor_position.get_high_byte_offset());
+
         if self.hex_cursor.0 < self.hex_view.lines.len() && self.hex_cursor.1 < self.hex_view.lines[self.hex_cursor.0].spans.len()
         {
             self.hex_view.lines[self.hex_cursor.0].spans[self.hex_cursor.1].style = self.color_settings.hex_selected;
