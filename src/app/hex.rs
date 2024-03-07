@@ -1,4 +1,5 @@
 use ratatui::text::{Line, Span, Text};
+use ratatui::style::{Style,Color};
 use iced_x86::Instruction;
 
 use super::{color_settings::ColorSettings, App, info_mode::InfoMode::Assembly};
@@ -153,11 +154,25 @@ impl <'a> App<'a>
     pub(super) fn update_hex_cursor(&mut self)
     {
         let cursor_position = self.get_cursor_position();
+        let instruction = self.get_current_instruction();
+
+
         if self.hex_last_byte_index < self.data.len()
         {
             let old_byte = self.data[self.hex_last_byte_index];
+            let old_instruction = self.get_instruction_at(self.hex_last_byte_index);
             let style = Self::get_style_for_byte(&self.color_settings, old_byte);
             self.hex_view.lines[self.hex_cursor.0].spans[self.hex_cursor.1].style = style;
+            if self.info_mode == Assembly {
+                if instruction != old_instruction {
+                    self.color_instruction(&old_instruction,None);
+                }
+            }
+        }
+
+
+        if self.info_mode == Assembly {
+            self.color_instruction(&instruction,Some(self.color_settings.current_instruction));
         }
 
         self.hex_last_byte_index = cursor_position.global_byte_index;
@@ -166,24 +181,32 @@ impl <'a> App<'a>
         {
             self.hex_view.lines[self.hex_cursor.0].spans[self.hex_cursor.1].style = self.color_settings.hex_selected;
         }
+    }
 
-
-        if self.info_mode == Assembly {
-            let current_instruction = self.get_current_instruction();
-            if current_instruction.is_some(){
-                let instruction = current_instruction.unwrap();
-                if self.hex_cursor.1 - instruction.ip() as usize > 0{
-
-                }
+    pub(super) fn color_instruction(&mut self, instruction: &Instruction, color: Option<Style>)
+    {
+        for i in instruction.ip() as usize..instruction.ip() as usize + instruction.len() {
+            let gui_pos = self.get_expected_cursor_position(i, true);
+            let style = if let Some(color)=color {color} else {Self::get_style_for_byte(&self.color_settings, self.data[i])};
+            self.hex_view.lines[gui_pos.line_index].spans[gui_pos.line_byte_index*3].style = style;
+            self.hex_view.lines[gui_pos.line_index].spans[gui_pos.line_byte_index*3+1].style = style;
+            if i != instruction.ip() as usize + instruction.len()-1 {
+                self.hex_view.lines[gui_pos.line_index].spans[gui_pos.line_byte_index*3+2].style = style;
             }
-
         }
     }
 
-    pub(super) fn get_current_instruction(&self) -> Option<Instruction>
+
+    pub(super) fn get_current_instruction(&self) -> Instruction
     {
         let current_istruction_index =  self.assembly_offsets[self.get_cursor_position().global_byte_index];
-        Some(self.instructions[current_istruction_index as usize])
+        self.instructions[current_istruction_index as usize]
+    }
+
+    pub(super) fn get_instruction_at(&self, index: usize) -> Instruction
+    {
+        let current_istruction_index =  self.assembly_offsets[index];
+        self.instructions[current_istruction_index as usize]
     }
 
 
