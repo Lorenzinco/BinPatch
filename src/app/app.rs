@@ -4,11 +4,12 @@ use crossterm::event;
 use iced_x86::Instruction;
 use ratatui::{backend::Backend, layout::Rect, style::{Color, Style}, text::Text, widgets::{Block, Borders, ScrollbarState}};
 
-use super::{color_settings::{self, ColorSettings}, info_mode::InfoMode, log::LogLine, popup_state::PopupState};
+use super::{color_settings::{self, ColorSettings}, header::Header, info_mode::InfoMode, log::LogLine, popup_state::PopupState};
 
 pub struct App<'a>
 {
     pub(super) path: PathBuf,
+    pub(super) header: Header,
     pub(super) log: Vec<LogLine>,
     pub(super) output: String,
     pub(super) dirty: bool,
@@ -53,9 +54,11 @@ impl <'a> App<'a>
         let address_view = Self::addresses(&color_settings, data.len(), block_size, blocks_per_row);
         let hex_view = Self::bytes_to_styled_hex(&color_settings, &data, block_size, blocks_per_row);
         let text_view = Self::bytes_to_styled_text(&color_settings, &data, block_size, blocks_per_row);
-        let (assembly_view, assembly_offsets, assembly_instructions) = Self::assembly_from_bytes(&color_settings, &data);
+        let header = Header::parse_header(&data);
+        let (assembly_view, assembly_offsets, assembly_instructions) = Self::assembly_from_bytes(&color_settings, &data, &header);
         Ok(App{
             path: canonical_path,
+            header,
             log: Vec::new(),
             data,
             output: "Press H to view a help page.".to_string(),
@@ -90,6 +93,27 @@ impl <'a> App<'a>
 
     pub fn run<B: Backend>(&mut self, terminal: &mut ratatui::Terminal<B>) -> Result<(),Box<dyn std::error::Error>>
     {
+        if self.header != Header::None
+        {
+            match &self.header
+            {
+                Header::Elf(_) => self.log("Info","Loaded ELF file."),
+                Header::PE(_) => self.log("Info","Loaded PE file."),
+                Header::None => unreachable!(),
+            }
+            self.log("Info", &format!("Bitness: {}", self.header.bitness()));
+            self.log("Info", &format!("Entry point: 0x{:X}", self.header.entry_point()));
+            for section in self.header.get_sections()
+            {
+                self.log("Info", &format!("Section: {}", section));
+            }
+        }
+        else
+        {
+            self.log("Info", "No header found. Assuming 64-bit.");
+        }
+        
+
         self.screen_size = (terminal.size()?.width, terminal.size()?.height);
         self.resize_if_needed(self.screen_size.0);
 

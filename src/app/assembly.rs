@@ -3,51 +3,7 @@ use ratatui::text::{Line, Span, Text};
 
 use crate::asm::assembler::assemble;
 
-use super::{app::App, color_settings::ColorSettings, elf::ElfHeader, pe::PEHeader};
-
-pub enum Header
-{
-    Elf(ElfHeader),
-    PE(PEHeader),
-}
-
-impl Header
-{
-    pub fn parse_header(bytes: &[u8]) -> Option<Header>
-    {
-        let elf_header = ElfHeader::parse_header(bytes);
-        match elf_header
-        {
-            Some(header) => return Some(Header::Elf(header)),
-            None => {},
-        };
-        let pe_header = PEHeader::parse_header(bytes);
-        match pe_header
-        {
-            Some(header) => return Some(Header::PE(header)),
-            None => {},
-        };
-        None
-    }
-
-    pub fn bitness(&self) -> u32
-    {
-        match self
-        {
-            Header::Elf(header) => header.bitness(),
-            Header::PE(header) => header.bitness(),
-        }
-    }
-
-    pub fn entry_point(&self) -> u64
-    {
-        match self
-        {
-            Header::Elf(header) => header.entry_point,
-            Header::PE(header) => header.optional_header.address_of_entry_point as u64,
-        }
-    }
-}
+use super::{app::App, color_settings::ColorSettings, header::Header};
 
 impl <'a> App<'a>
 {
@@ -98,17 +54,13 @@ impl <'a> App<'a>
         line
     }
 
-    pub(super) fn assembly_from_bytes(color_settings: &ColorSettings, bytes: &[u8]) -> (Text<'a>, Vec<usize>, Vec<Instruction>)
+    pub(super) fn assembly_from_bytes(color_settings: &ColorSettings, bytes: &[u8], header: &Header) -> (Text<'a>, Vec<usize>, Vec<Instruction>)
     {
         let mut output = Text::default();
         let mut line_offsets = vec![0; bytes.len()];
         let mut instructions = Vec::new();
-        let header = Header::parse_header(bytes);
-        let bitness = match header
-        {
-            Some(header) => header.bitness(),
-            None => 64,
-        };
+
+        let bitness = header.bitness();
 
         let decoder = iced_x86::Decoder::new(bitness, bytes, iced_x86::DecoderOptions::NONE);
         let mut byte_index = 0;
@@ -129,7 +81,7 @@ impl <'a> App<'a>
 
     pub(super) fn bytes_from_assembly(&self, assembly: &str) -> Result<Vec<u8>, String>
     {        
-        let bytes = assemble(assembly, 64);
+        let bytes = assemble(assembly, self.header.bitness());
         match bytes
         {
             Ok(bytes) => Ok(bytes),
@@ -224,7 +176,7 @@ impl <'a> App<'a>
     pub(super) fn edit_assembly(&mut self)
     {
         let from_byte = self.get_current_instruction().ip() as usize;
-        let mut decoder = iced_x86::Decoder::new(64, &self.data[from_byte..], iced_x86::DecoderOptions::NONE);
+        let mut decoder = iced_x86::Decoder::new(self.header.bitness(), &self.data[from_byte..], iced_x86::DecoderOptions::NONE);
         decoder.set_ip(from_byte as u64);
         let mut offsets = Vec::new();
         let mut instructions = Vec::new();
@@ -278,11 +230,11 @@ impl <'a> App<'a>
 
         for i in from_instruction..to_instruction
         {
-            self.log("Debug", &format!("Removing instruction \"{}\" at {}", self.assembly_instructions[i], self.assembly_instructions[i].ip()));
+            self.log("Debug", &format!("Removing instruction \"{}\" at {:X}", self.assembly_instructions[i], self.assembly_instructions[i].ip()));
         }
         for i in 0..instructions.len()
         {
-            self.log("Debug", &format!("Adding instruction \"{}\" at {}", instructions[i], instructions[i].ip()));
+            self.log("Debug", &format!("Adding instruction \"{}\" at {:X}", instructions[i], instructions[i].ip()));
         }
 
         self.assembly_instructions.splice(from_instruction..to_instruction, instructions);
