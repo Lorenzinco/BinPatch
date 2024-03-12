@@ -26,6 +26,7 @@ pub struct ColorSettings
     pub assembly_bad: Style,
     pub assembly_section: Style,
     pub assembly_default: Style,
+    pub assembly_operands: Style,
 
     pub help_command: Style,
     pub hep_description: Style,
