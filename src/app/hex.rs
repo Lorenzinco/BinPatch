@@ -1,7 +1,7 @@
 use ratatui::text::{Line, Span, Text};
 use ratatui::style::{Style,Color};
 
-use super::{assembly::AssemblyLine, color_settings::ColorSettings, info_mode::InfoMode, App};
+use super::{assembly::AssemblyLine, color_settings::ColorSettings, info_mode::InfoMode, notification::NotificationLevel, App};
 
 impl <'a> App<'a>
 {
@@ -210,6 +210,6 @@ impl <'a> App<'a>
     {
         std::fs::write(&self.path, &self.data).unwrap();
         self.dirty = false;
-        self.log("Info", &format!("Saved to {}", self.path.to_str().unwrap()));
+        self.log(NotificationLevel::Info, &format!("Saved to {}", self.path.to_str().unwrap()));
     }
 }
