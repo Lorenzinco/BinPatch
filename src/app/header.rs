@@ -61,7 +61,7 @@ impl Header
         match self
         {
             Header::Elf(header) => header.entry_point,
-            Header::PE(header) => header.optional_header.address_of_entry_point as u64,
+            Header::PE(header) => header.entry_point,
             Header::None => 0,
         }
     }
@@ -155,13 +155,28 @@ impl Header
             {
                 Some(header.get_symbols())
             },
-            Header::PE(_header) => 
+            Header::PE(header) => 
             {
-                // TODO: implement this
-                None
+                Some(header.get_symbols())
             },
             Header::None => None,
             
+        }
+    }
+
+    pub fn symbol_to_address(&self, symbol: &str) -> Option<u64>
+    {
+        match self
+        {
+            Header::Elf(header) => 
+            {
+                header.inverse_symbol_table.get(symbol).map(|x| *x)
+            },
+            Header::PE(header) => 
+            {
+                header.inverse_symbol_table.get(symbol).map(|x| *x)
+            },
+            Header::None => None,
         }
     }
 }
