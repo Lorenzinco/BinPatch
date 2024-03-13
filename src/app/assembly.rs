@@ -6,7 +6,7 @@ use crate::asm::assembler::assemble;
 use super::{app::App, color_settings::ColorSettings, header::{Header, Section}, notification::NotificationLevel};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NotExecutableSection
+pub struct SectionTag
 {
     pub name: String,
     pub ip: u64,
@@ -16,7 +16,7 @@ pub struct NotExecutableSection
 pub enum AssemblyLine
 {
     Instruction(Instruction),
-    NotExecutableSection(NotExecutableSection)
+    SectionTag(SectionTag)
 }
 
 impl AssemblyLine
@@ -26,7 +26,7 @@ impl AssemblyLine
         match self
         {
             AssemblyLine::Instruction(instruction) => instruction.ip(),
-            AssemblyLine::NotExecutableSection(section) => section.ip,
+            AssemblyLine::SectionTag(section) => section.ip,
         }
     }
 
@@ -38,7 +38,7 @@ impl AssemblyLine
                 let selected = current_byte_index >= instruction.ip() as usize && current_byte_index < instruction.ip() as usize + instruction.len();
                 App::instruction_to_line(color_settings, instruction, selected)
             },
-            AssemblyLine::NotExecutableSection(section) => 
+            AssemblyLine::SectionTag(section) => 
             {
                 let selected = current_byte_index >= section.ip as usize && current_byte_index < section.ip as usize + section.size;
                 let mut line = Line::default();
@@ -126,10 +126,10 @@ impl <'a> App<'a>
         let mut current_byte = 0;
         for section in sections
         {
-            while section.address > current_byte as u64
+            if section.address > current_byte as u64
             {
-                lines.push(AssemblyLine::NotExecutableSection(
-                    NotExecutableSection {
+                lines.push(AssemblyLine::SectionTag(
+                    SectionTag {
                         name: "Unknown".to_string(),
                         ip: current_byte as u64,
                         size: section.address as usize - current_byte
@@ -141,21 +141,28 @@ impl <'a> App<'a>
                     current_byte += 1;
                 }
             }
-            if section.size == 0
-            {
-                continue;
-            }
+            // if there are any overlapping sections, this should fix it
+            current_byte = section.address as usize;
             match section.name.as_str()
             {
                 ".text" => {
+                    lines.push(
+                        AssemblyLine::SectionTag(
+                            SectionTag {
+                                name: ".text".to_string(),
+                                ip: section.address,
+                                size: section.size as usize
+                            }
+                        )
+                    );
                     let (offsets, instructions) = Self::assembly_from_section(bytes, header, section.address as usize, section.size as usize, lines.len());
                     line_offsets.splice(section.address as usize..section.address as usize + section.size as usize, offsets);
                     lines.extend(instructions);
                     current_byte += section.size as usize;
                 },
                 name => {
-                    lines.push(AssemblyLine::NotExecutableSection(
-                        NotExecutableSection {
+                    lines.push(AssemblyLine::SectionTag(
+                        SectionTag {
                             name: name.to_string(),
                             ip: section.address,
                             size: section.size as usize,
@@ -167,6 +174,21 @@ impl <'a> App<'a>
                         current_byte += 1;
                     }
                 }
+            }
+        }
+        if current_byte < bytes.len()
+        {
+            lines.push(AssemblyLine::SectionTag(
+                SectionTag {
+                    name: "Unknown".to_string(),
+                    ip: current_byte as u64,
+                    size: bytes.len() - current_byte
+                }
+            ));
+            for _ in current_byte..bytes.len()
+            {
+                line_offsets[current_byte] = lines.len() - 1;
+                current_byte += 1;
             }
         }
 
@@ -208,7 +230,11 @@ impl <'a> App<'a>
     pub(super) fn patch_bytes(&mut self, bytes: &[u8])
     {
         let current_instruction = self.get_current_instruction().clone();
-        let current_ip = current_instruction.ip();
+        let current_ip = match current_instruction
+        {
+            AssemblyLine::Instruction(instruction) => instruction.ip(),
+            AssemblyLine::SectionTag(_) => self.get_cursor_position().global_byte_index as u64
+        };
         for (i, byte) in bytes.iter().enumerate()
         {
             self.data[current_ip as usize + i] = *byte;
