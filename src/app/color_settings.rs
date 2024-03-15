@@ -23,9 +23,11 @@ pub struct ColorSettings
     pub assembly_symbol: Style,
     pub assembly_selected: Style,
     pub assembly_address: Style,
+    pub assembly_virtual_address: Style,
     pub assembly_nop: Style,
     pub assembly_bad: Style,
     pub assembly_section: Style,
+    pub assembly_entry_point: Style,
     pub assembly_default: Style,
     pub assembly_operands: Style,
 
@@ -81,9 +83,11 @@ impl Default for ColorSettings
             assembly_symbol: Style::default().fg(Color::LightGreen),
             assembly_selected: Style::default().fg(Color::Black).bg(Color::White),
             assembly_address: Style::default().fg(Color::DarkGray),
+            assembly_virtual_address: Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM),
             assembly_nop: Style::default().fg(Color::DarkGray),
             assembly_bad: Style::default().fg(Color::LightRed),
             assembly_section: Style::default().fg(Color::LightBlue),
+            assembly_entry_point: Style::default().fg(Color::Yellow),
             assembly_default: Style::default().fg(Color::Rgb(204, 152, 113)),
             assembly_operands: Style::default(),
 

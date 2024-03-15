@@ -67,7 +67,7 @@ impl <'a> App<'a>
 
     pub(super) fn resize_if_needed(&mut self, width: u16)
     {
-        let blocks_per_row = self.calc_blocks_per_row(width);
+        let blocks_per_row = Self::calc_blocks_per_row(self.block_size, width);
         if self.blocks_per_row != blocks_per_row
         {
             self.resize(blocks_per_row);
@@ -76,21 +76,24 @@ impl <'a> App<'a>
 
     pub(super) fn resize(&mut self, blocks_per_row: usize)
     {
+        let old_cursor = self.get_cursor_position();
         self.blocks_per_row = blocks_per_row;
         self.address_view = Self::addresses(&&self.color_settings, self.data.len(), self.block_size, self.blocks_per_row);
         self.hex_view = Self::bytes_to_styled_hex(&self.color_settings, &self.data, self.block_size, self.blocks_per_row);
         self.text_view = Self::bytes_to_styled_text(&self.color_settings, &self.data, self.block_size, self.blocks_per_row);
+        self.hex_cursor = (0, 0);
+        self.hex_last_byte_index = 0;
+        self.text_cursor = (0, 0);
+        self.text_last_byte_index = 0;
+        self.address_last_row = 0;
 
-        // TODO: this is still buggy
-
-        self.update_hex_cursor();
-        self.update_text_cursor();
+        self.jump_to(old_cursor.global_byte_index, false);
     }
 
-    pub(super) fn calc_blocks_per_row(&self, width: u16) -> usize
+    pub(super) fn calc_blocks_per_row(block_size: usize, width: u16) -> usize
     {
-        let block_characters_hex = self.block_size * 3 + 1;
-        let block_characters_text = self.block_size * 2 + 1;
+        let block_characters_hex = block_size * 3 + 1;
+        let block_characters_text = block_size * 2 + 1;
         let available_width = width - 18 - 2 - 2;
         let complessive_chars_per_block = block_characters_hex + block_characters_text;
         let blocks_per_row = (available_width + 2) / complessive_chars_per_block as u16;
@@ -186,7 +189,7 @@ impl <'a> App<'a>
     {
         if let AssemblyLine::Instruction(instruction) = instruction
         {
-            for i in instruction.ip() as usize..instruction.ip() as usize + instruction.len() {
+            for i in instruction.file_address as usize..instruction.file_address as usize + instruction.instruction.len() {
                 let gui_pos = self.get_expected_cursor_position(i, true);
                 let style = if original_color
                 {
@@ -198,7 +201,7 @@ impl <'a> App<'a>
                 };
                 self.hex_view.lines[gui_pos.line_index].spans[gui_pos.line_byte_index*3].style = style;
                 self.hex_view.lines[gui_pos.line_index].spans[gui_pos.line_byte_index*3+1].style = style;
-                if i != instruction.ip() as usize + instruction.len()-1 {
+                if i != instruction.file_address as usize + instruction.instruction.len()-1 {
                     self.hex_view.lines[gui_pos.line_index].spans[gui_pos.line_byte_index*3+2].style = style;
                 }
             }
