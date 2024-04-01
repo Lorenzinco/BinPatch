@@ -35,6 +35,7 @@ pub struct ColorSettings
     pub patch_patched_greater: Style,
     pub patch_old_instruction: Style,
     pub patch_old_rest: Style,
+    pub patch_line_number: Style,
 
     pub help_command: Style,
     pub hep_description: Style,
@@ -100,6 +101,7 @@ impl Default for ColorSettings
             patch_patched_greater: Style::default().fg(Color::Yellow),
             patch_old_instruction: Style::default().fg(Color::Red),
             patch_old_rest: Style::default().fg(Color::DarkGray),
+            patch_line_number: Style::default().fg(Color::DarkGray),
 
             help_command: Style::default().fg(Color::LightGreen),
             hep_description: Style::default().fg(Color::Gray),
