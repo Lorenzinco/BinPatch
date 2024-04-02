@@ -22,8 +22,8 @@ impl HelpLine
     {
         let mut line = Line::default();
         line.spans.push(Span::styled(format!("{:>2}",&self.command), color_settings.help_command));
-        line.spans.push(Span::styled(": ", color_settings.ok));
-        line.spans.push(Span::styled(&self.description, color_settings.ok));
+        line.spans.push(Span::styled(": ", color_settings.menu_text));
+        line.spans.push(Span::styled(&self.description, color_settings.menu_text));
         line.left_aligned()
     }
 }
@@ -36,6 +36,7 @@ impl <'a> App<'a>
             HelpLine::new("←→↑↓", "Move and scroll"),
             HelpLine::new("PgUp/PgDn", "Scroll page up/down"),
             HelpLine::new("Home/End", "Scroll to start/end"),
+            HelpLine::new("Space", "Run command"),
             HelpLine::new("^S", "Save"),
             HelpLine::new("^X", "Save and quit"),
             HelpLine::new("^C", "Quit"),

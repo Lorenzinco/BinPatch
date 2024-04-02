@@ -2,11 +2,18 @@ use std::error::Error;
 
 use ratatui::{layout::Rect, text::{Line, Span, Text}, Frame};
 
-use super::{assembly::AssemblyLine, color_settings::ColorSettings, App};
+use super::{assembly::AssemblyLine, color_settings::ColorSettings, run_command::Command, App};
 
 #[derive(Clone, Debug)]
 pub enum PopupState
 {
+    Run
+    {
+        command: String,
+        cursor: usize,
+        results: Vec<Command>,
+        scroll: usize
+    },
     FindSymbol
     {
         filter: String,
@@ -40,10 +47,11 @@ impl <'a> App<'a>
         let screen_height = self.screen_size.1 as isize;
         let lines = match &self.popup
         {
+            Some(PopupState::Run{..}) => screen_height - 6 - 2,
             Some(PopupState::FindSymbol{ .. }) => screen_height - 6 - 2,
             Some(PopupState::Log(_)) => screen_height - 4 - 2,
             Some(PopupState::Help(_)) => screen_height - 4 - 2,
-            Some(PopupState::Patch{..}) => screen_height - 5 - 2,
+            Some(PopupState::Patch{..}) => screen_height - 6 - 2,
             _ => 0
         };
 
@@ -59,7 +67,7 @@ impl <'a> App<'a>
 
     pub(super) fn get_patch_preview(&self, color_settings: &ColorSettings, preview: &Result<Vec<u8>,String>) -> Line<'a>
     {
-        let mut preview_string = Line::from(vec![Span::raw(" ")]);
+        let mut preview_string = Line::raw(" ");
         match preview
         {
             Ok(preview) =>
@@ -103,11 +111,18 @@ impl <'a> App<'a>
                 }
                 else 
                 {
-                    for byte in preview.iter()
+                    if preview.is_empty()
                     {
-                        let style = Self::get_style_for_byte(color_settings, *byte);
-                        preview_string.spans.push(Span::styled(format!("{:02X} ", byte), style));
-                    }    
+                        preview_string.spans.push(Span::styled("Preview", color_settings.placeholder));
+                    }
+                    else 
+                    {
+                        for byte in preview.iter()
+                        {
+                            let style = Self::get_style_for_byte(color_settings, *byte);
+                            preview_string.spans.push(Span::styled(format!("{:02X} ", byte), style));
+                        }       
+                    }
                 }
             }
             Err(e) =>
@@ -144,7 +159,7 @@ impl <'a> App<'a>
         {
             if i == cursor
             {
-                spans.push(Span::styled(c.to_string(), color_settings.ok_selected));
+                spans.push(Span::styled(c.to_string(), color_settings.menu_text_selected));
             }
             else
             {
@@ -153,9 +168,9 @@ impl <'a> App<'a>
         }
         
         spans.push(Span::styled(" ", if cursor == string.len() {
-            color_settings.ok_selected
+            color_settings.menu_text_selected
         } else {
-            color_settings.ok
+            color_settings.menu_text
         }));
         Line::from(spans)
     }
@@ -175,11 +190,11 @@ impl <'a> App<'a>
             let style = if i == cursor
             {
                 selected_line = lines.len();
-                color_settings.ok_selected
+                color_settings.menu_text_selected
             }
             else
             {
-                color_settings.ok
+                color_settings.menu_text
             };
             if c == '\n'
             {
@@ -195,7 +210,7 @@ impl <'a> App<'a>
         if cursor == string.len()
         {
             selected_line = lines.len();
-            current_line.push(Span::styled(" ", color_settings.ok_selected));
+            current_line.push(Span::styled(" ", color_settings.menu_text_selected));
         }
         if current_line.len() > 0
         {
@@ -208,6 +223,44 @@ impl <'a> App<'a>
     {
         match &popup_state
         {
+            PopupState::Run { command, cursor, results, scroll } =>
+            {
+                *popup_title = "Run";
+                let width = 60;
+                let max_results = self.get_scrollable_popup_line_count()?;
+                let height = max_results + 2 + 4;
+                *popup_rect = Rect::new(f.size().width / 2 - width as u16/2, f.size().height / 2 - height as u16 / 2, width as u16, height as u16);
+                let mut editable_string = Self::get_line_from_string_and_cursor(color_settings, command, *cursor, "Command");
+                editable_string.spans.insert(0, Span::styled(" >", color_settings.menu_text));
+                popup_text.lines.extend(
+                    vec![
+                        editable_string.left_aligned(),
+                        Line::raw("─".repeat(width)),
+                    ]
+                );
+                let skip = 0.max(*scroll as isize - max_results as isize / 2) as usize;
+                let skip = skip.min(results.len().saturating_sub(max_results));
+                let relative_scroll = *scroll - skip;
+                let results_iter = results.iter().skip(skip).take(max_results).enumerate().map(|(i,c)| c.to_line(color_settings, relative_scroll == i));
+                if skip > 0
+                {
+                    popup_text.lines.push(Line::from(vec![Span::styled("▲", color_settings.menu_text)]));
+                }
+                else
+                {
+                    popup_text.lines.push(Line::raw(""));
+                }
+                popup_text.lines.extend(results_iter);
+                if results.len() as isize - skip as isize > max_results as isize
+                {
+                    popup_text.lines.push(Line::from(vec![Span::styled("▼", color_settings.menu_text)]));
+                }
+                else
+                {
+                    popup_text.lines.push(Line::raw(""));
+                }
+
+            },
             PopupState::FindSymbol{ filter, symbols, cursor, scroll } =>
             {
                 *popup_title = "Find Symbol";
@@ -271,7 +324,7 @@ impl <'a> App<'a>
                         let symbol_line_iter = symbols.iter().skip(scroll).take(max_symbols).enumerate().map(symbol_to_line_lambda);
                         let mut symbols_as_lines = if scroll > 0
                         {
-                            vec![Line::from(vec![Span::styled("▲", color_settings.ok)])]
+                            vec![Line::from(vec![Span::styled("▲", color_settings.menu_text)])]
                         }
                         else
                         {
@@ -287,7 +340,7 @@ impl <'a> App<'a>
 
                         if symbols.len() as isize - scroll as isize > max_symbols as isize || additional_vector.len() > max_symbols
                         {
-                            symbols_as_lines.push(Line::from(vec![Span::styled("▼", color_settings.ok)]));
+                            symbols_as_lines.push(Line::from(vec![Span::styled("▼", color_settings.menu_text)]));
                         }
                         else
                         {
@@ -330,7 +383,7 @@ impl <'a> App<'a>
                 {
                     if self.log.len() as isize - *scroll as isize > max_lines as isize
                     {
-                        popup_text.lines.push(Line::from(vec![Span::styled("▲", color_settings.ok)]));
+                        popup_text.lines.push(Line::from(vec![Span::styled("▲", color_settings.menu_text)]));
                     }
                     else
                     {
@@ -343,7 +396,7 @@ impl <'a> App<'a>
                     }
                     if *scroll > 0
                     {
-                        popup_text.lines.push(Line::from(vec![Span::styled("▼", color_settings.ok)]));
+                        popup_text.lines.push(Line::from(vec![Span::styled("▼", color_settings.menu_text)]));
                     }
                     else
                     {
@@ -355,7 +408,7 @@ impl <'a> App<'a>
             {
                 *popup_title = "Patch";
                 let available_editable_text_lines = self.get_scrollable_popup_line_count()?;
-                let height = 3 + 2 + available_editable_text_lines as u16;
+                let height = 6 + available_editable_text_lines as u16;
 
                 let width = 60;
                 *popup_rect = Rect::new(f.size().width / 2 - width/2, f.size().height / 2 - height/2, width, height);
@@ -364,6 +417,7 @@ impl <'a> App<'a>
                 popup_text.lines.extend(
                     vec![
                         preview_line.left_aligned(),
+                        Line::raw("─".repeat(width as usize)),
                     ]
                 );
                 let skip_lines = 0.max(selected_line as isize - (available_editable_text_lines as isize - 1) / 2) as usize;
@@ -374,13 +428,13 @@ impl <'a> App<'a>
                 }
                 else 
                 {
-                    popup_text.lines.push(Line::from(vec![Span::styled("▲", color_settings.ok)]));
+                    popup_text.lines.push(Line::from(vec![Span::styled("▲", color_settings.menu_text)]));
                 }
                 let editable_lines_count = editable_lines.len();
                 popup_text.lines.extend(editable_lines.into_iter().skip(skip_lines).take(available_editable_text_lines as usize));
                 if editable_lines_count as isize - skip_lines as isize > available_editable_text_lines as isize
                 {
-                    popup_text.lines.push(Line::from(vec![Span::styled("▼", color_settings.ok)]));
+                    popup_text.lines.push(Line::from(vec![Span::styled("▼", color_settings.menu_text)]));
                 }
                 else
                 {
@@ -474,7 +528,7 @@ impl <'a> App<'a>
                 *popup_title = "Help";
                 if *scroll > 0
                 {
-                    popup_text.lines.push(Line::from(vec![Span::styled("▲", color_settings.ok)]));
+                    popup_text.lines.push(Line::from(vec![Span::styled("▲", color_settings.menu_text)]));
                 }
                 else
                 {
@@ -490,7 +544,7 @@ impl <'a> App<'a>
                 );
                 if self.help_list.len() as isize - *scroll as isize > max_lines as isize
                 {
-                    popup_text.lines.push(Line::from(vec![Span::styled("▼", color_settings.ok)]));
+                    popup_text.lines.push(Line::from(vec![Span::styled("▼", color_settings.menu_text)]));
                 }
                 else
                 {
